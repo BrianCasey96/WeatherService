@@ -6,8 +6,7 @@ Setting up
 	- do a gradle clean and build:
      ./gradlew clean
      ./gradlew build
-	- to run from a terminal try './gradlew bootRun' or else run the program in IntelliJ/VSCode from the main class Application 
-
+	- to run from a terminal try './gradlew bootRun' or else run the program in IntelliJ/VSCode from the main class Application
 
 ## REST API Calls
 
@@ -24,9 +23,15 @@ Setting up
     --header 'Content-Type: application/json' \
     --data-raw '{ "temperature": 17.0, "humidity": 81.7 }'
 
-### Query Sensor Metrics - **Not fully implemented**
+### Query Sensor Metrics -
+    Get most recent SensorData for all Sensors:
     curl --location --request GET 'localhost:8080/getSensors?ids=all'
-    or
+    
+    Get most recent SensorData for listed ids:
     curl --location --request GET 'localhost:8080/getSensors?ids={id},{id}'
-    or
+    
+    Get average SensorData for all Sensors:
+    curl --location --request GET 'localhost:8080/getSensors?ids=all&&from=dd-MM-YYYY&to=dd-MM-YYYY
+
+    Get average SensorData for listed ids:
     curl --location --request GET 'localhost:8080/getSensors?ids={id},{id}&&from=dd-MM-YYYY&to=dd-MM-YYYY

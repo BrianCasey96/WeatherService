@@ -3,37 +3,25 @@ package com.storm.eunice.rest.api.model;
 import com.fasterxml.jackson.annotation.JsonFormat;
 
 import javax.persistence.*;
-import java.util.Date;
-
+import java.time.LocalDateTime;
 
 @Embeddable
 public class SensorData {
 
     @JsonFormat(pattern="dd-MM-yyyy HH:mm:ss")
-    protected Date date;
+    protected LocalDateTime date;
     protected Double temperature;
     protected Double humidity;
 
     protected SensorData(){}
 
-    public SensorData(Date date, Double temperature, Double humidity){
-        this.date = date;
+    public SensorData(final Double temperature, final Double humidity){
         this.temperature = temperature;
         this.humidity = humidity;
     }
 
-    public SensorData(Double temperature, Double humidity){
-        this.date = new Date();
-        this.temperature = temperature;
-        this.humidity = humidity;
-    }
-
-    private void setDate(Date date) {
+    public void setDate(LocalDateTime date) {
         this.date = date;
-    }
-
-    private void setDate() {
-        this.date = new Date();
     }
 
     private void setHumidity(Double humidity) {
@@ -44,7 +32,7 @@ public class SensorData {
         this.temperature = temperature;
     }
 
-    public Date getDate() {
+    public LocalDateTime getDate() {
         return date;
     }
 

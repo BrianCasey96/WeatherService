@@ -1,9 +1,8 @@
 package com.storm.eunice.rest.api.repository;
 
 import com.storm.eunice.rest.api.model.Sensor;
-import com.storm.eunice.rest.api.model.SensorData;
 
-import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 
 public class CustomisedWeatherSensorRepositoryImpl implements CustomisedWeatherSensorRepository {
@@ -18,23 +17,15 @@ public class CustomisedWeatherSensorRepositoryImpl implements CustomisedWeatherS
         return weatherSensorRepository.existsById(id);
     }
 
+    public List<SensorId> findAllBy(){
+        return weatherSensorRepository.findAllBy();
+    }
+
     public Optional<Sensor> findSensor(String id) {
         return weatherSensorRepository.findById(id);
     }
 
-
     public Sensor saveSensor(final Sensor sensor) {
         return weatherSensorRepository.save(sensor);
-    }
-
-
-    public Boolean updateSensorValues() {
-        return null;
-    }
-
-    @Override
-    public Object getValues(String sensorId, Date from, Date to) {
-        //Not Implemented
-        return null;
     }
 }

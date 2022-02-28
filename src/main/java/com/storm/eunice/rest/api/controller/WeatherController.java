@@ -1,23 +1,23 @@
 package com.storm.eunice.rest.api.controller;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.storm.eunice.rest.api.exception.SensorAlreadyExistsException;
 import com.storm.eunice.rest.api.exception.SensorNotFoundException;
-import com.storm.eunice.rest.api.formatter.DateFormatter;
+
 import com.storm.eunice.rest.api.model.Sensor;
 import com.storm.eunice.rest.api.model.SensorMetadata;
 import com.storm.eunice.rest.api.model.SensorData;
+import com.storm.eunice.rest.api.repository.SensorId;
 import com.storm.eunice.rest.api.service.WeatherService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 public class WeatherController {
@@ -25,91 +25,86 @@ public class WeatherController {
     private static final Logger log = LoggerFactory.getLogger(WeatherController.class);
 
     private final WeatherService weatherService;
-    private final ObjectMapper objectMapper;
-    private final DateFormatter dateFormatter;
 
-    public WeatherController(final WeatherService weatherService, final ObjectMapper objectMapper,
-                             final DateFormatter dateFormatter) {
+    public WeatherController(final WeatherService weatherService) {
         this.weatherService = weatherService;
-        this.objectMapper = objectMapper;
-        this.dateFormatter = dateFormatter;
     }
 
     @PostMapping("/registerSensor/{id}")
     public ResponseEntity<?> registerSensor(@PathVariable final String id,
-                                            @RequestBody final Optional<SensorMetadata> sensorMetadata) throws JsonProcessingException {
-
+                                            @RequestBody final Optional<SensorMetadata> sensorMetadata) {
         if(weatherService.existsById(id)){
             throw new SensorAlreadyExistsException();
         }
 
         Sensor sensor = weatherService.registerSensor(id, sensorMetadata.orElse(null));
-        return ResponseEntity.ok(objectMapper.writeValueAsString(sensor));
+        return ResponseEntity.ok(sensor);
     }
 
     @GetMapping("/getSensor/{sensorId}")
-    public ResponseEntity<?> getSensor(@PathVariable final String sensorId) throws JsonProcessingException {
-        Optional<Sensor> sensor = weatherService.findSensor(sensorId);
-
-        if(!sensor.isPresent()){
-            return ResponseEntity.notFound().build();
-        }
-
-        return ResponseEntity.ok(objectMapper.writeValueAsString(sensor.get()));
+    public ResponseEntity<?> getSensor(@PathVariable final String sensorId) {
+        return weatherService.findSensor(sensorId).map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @PostMapping("/addSensorData/{id}")
     public ResponseEntity<?> addSensorData(@PathVariable final String id,
-                                           @RequestBody final SensorData data) throws JsonProcessingException {
+                                           @RequestBody final SensorData data) {
         Optional<Sensor> sensor = weatherService.findSensor(id);
+        sensor.orElseThrow(SensorNotFoundException::new);
 
-        if(!sensor.isPresent()){
-            throw new SensorNotFoundException();
+        if(data.getDate() == null){
+            data.setDate(LocalDateTime.now());
         }
 
-
-        //TODO: fix up date being passed in, and if null, generate automatically
-        Sensor returnedSensor =  weatherService.addSensorData(sensor.get(), data);
-        return ResponseEntity.ok(objectMapper.writeValueAsString(returnedSensor));
+        Sensor sensorWithData =  weatherService.addSensorData(sensor.get(), data);
+        return ResponseEntity.ok(sensorWithData);
     }
 
-    //*Not Fully implemented
     @GetMapping("/getSensors")
     public ResponseEntity<?> getSensors(@RequestParam List<String> ids,
                                         @RequestParam Optional<String> from,
                                         @RequestParam Optional<String> to) {
-
-        Map<String, SensorData> averageValues;
-
+        Map<String, SensorData> sensorValuesMap = new HashMap<>();
+        LocalDate fromDate, toDate;
         log.info("Sensors Id's to process are {}", ids);
 
         if (ids.get(0).equals("all")) {
-            log.info("Need to get all Id's");
+            //remove string 'all' from the List
+            ids.clear();
+            ids.addAll(weatherService.findAllBy().stream().map(SensorId::getId).collect(Collectors.toList()));
         }
 
-        Date fromDate;
-        Date toDate;
-
         if (from.isPresent() && to.isPresent()) {
-            fromDate = dateFormatter.stringToDate(from.get());
-            toDate = dateFormatter.stringToDate(to.get());
+            final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+            fromDate = LocalDate.parse(from.get(), formatter);
+            toDate = LocalDate.parse(to.get(), formatter);
 
-            if (fromDate == null || toDate == null) {
+            if (fromDate == null || toDate == null || fromDate.isAfter(toDate)) {
+                //TODO: add note, or DateException class
                 return ResponseEntity.badRequest().build();
             }
 
+            //TODO: check if timeframe is less than 30days
             log.info("From Date: {}. To Date: {}", fromDate, toDate);
 
             for (String sensorId : ids) {
-                Optional<Sensor> sensor = weatherService.findSensor(sensorId);
-                if (sensor.isPresent()) {
-                    //TODO: get list of sensorData for between the dates, add up temp and humidity and get average value
-                    //add average values for this sensor to a map where key is the sensorId and average SensorData is the value
-                    //return that map at the end to the user
-                }
+                //this should really be a custom JPA Query for the specific dates instead of getting all values back for the sensor
+                List<SensorData> values = weatherService.getValuesOverPeriod(sensorId, fromDate, toDate);
+                Double tempAvg = values.stream().mapToDouble(SensorData::getTemperature).average().orElse(0);
+                Double humidityAvg = values.stream().mapToDouble(SensorData::getHumidity).average().orElse(0);
+                sensorValuesMap.put(sensorId, new SensorData(tempAvg, humidityAvg));
+            }
+        }else{
+            //get most recent sensorData
+            for (String sensorId : ids) {
+                //Again this should really be a custom JPA Query instead of getting all values back for the sensor
+              Optional<SensorData> data = weatherService.findSensor(sensorId).map(sensor -> sensor.getSensorData().get(sensor.getSensorData().size() - 1));
+              data.ifPresent(sensorData -> sensorValuesMap.put(sensorId, sensorData));
             }
         }
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(sensorValuesMap);
+
     }
 
 }

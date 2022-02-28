@@ -1,8 +1,6 @@
 package com.storm.eunice.rest.api;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.storm.eunice.rest.api.controller.WeatherController;
-import com.storm.eunice.rest.api.formatter.DateFormatter;
 import com.storm.eunice.rest.api.repository.CustomisedWeatherSensorRepository;
 import com.storm.eunice.rest.api.repository.CustomisedWeatherSensorRepositoryImpl;
 import com.storm.eunice.rest.api.repository.WeatherSensorRepository;
@@ -15,15 +13,7 @@ import org.springframework.context.annotation.Configuration;
 public class AppConfig {
 
     @Autowired
-    private ObjectMapper objectMapper;
-
-    @Autowired
     private WeatherSensorRepository weatherSensorRepository;
-
-    @Bean
-    public DateFormatter dateFormatter(){
-        return new DateFormatter();
-    };
 
     @Bean
     public WeatherService weatherService() {
@@ -32,7 +22,7 @@ public class AppConfig {
 
     @Bean
     public WeatherController weatherController() {
-        return new WeatherController(weatherService(), objectMapper, dateFormatter());
+        return new WeatherController(weatherService());
     }
 
     @Bean
